@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Typing Pro Ultimate</title>
+
+<style>
+body { font-family: Arial; background:#eef2f7; text-align:center; }
+.container { width:80%; margin:auto; margin-top:20px; }
+.hidden { display:none; }
+
+button, select, textarea, input {
+    padding:10px; margin:5px; width:80%;
+}
+
+.card {
+    background:white; padding:20px;
+    border-radius:10px; margin-top:20px;
+}
+
+#textDisplay span.correct { color:green; }
+#textDisplay span.wrong { color:red; }
+
+.lock { color:red; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div id="loginPage" class="card">
+<h2>Login</h2>
+<input id="username" placeholder="Enter Username">
+<button onclick="login()">Login</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="card hidden">
+<h2>Welcome <span id="user"></span></h2>
+
+<p>Status: <span id="status">Free User</span></p>
+
+<select id="category">
+<option value="easy">Easy (Free)</option>
+<option value="medium">Medium (Free)</option>
+<option value="hard">Hard (Premium 🔒)</option>
+<option value="hindi">Hindi (Premium 🔒)</option>
+</select>
+
+<button onclick="startTest()">Start Test</button>
+<button onclick="showLeaderboard()">Leaderboard</button>
+<button onclick="showPlans()">Buy Premium</button>
+<button onclick="logout()">Logout</button>
+</div>
+
+<!-- TEST PAGE -->
+<div id="testPage" class="card hidden">
+<h2>Typing Test</h2>
+<div id="textDisplay"></div>
+
+<textarea id="inputBox" rows="4" placeholder="Start typing..."></textarea>
+
+<p>Time: <span id="time">60</span></p>
+<p>WPM: <span id="wpm">0</span></p>
+<p>Accuracy: <span id="accuracy">100</span>%</p>
+
+<button onclick="endTest()">End Test</button>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderboardPage" class="card hidden">
+<h2>Leaderboard</h2>
+<ul id="leaderboardList"></ul>
+<button onclick="back()">Back</button>
+</div>
+
+<!-- PLANS -->
+<div id="plansPage" class="card hidden">
+<h2>Buy Subscription</h2>
+
+<button onclick="pay('25','1 Month')">₹25 - 1 Month</button>
+<button onclick="pay('60','6 Months')">₹60 - 6 Months</button>
+<button onclick="pay('100','1 Year')">₹100 - 1 Year</button>
+<button onclick="pay('500','Lifetime')">₹500 - Lifetime</button>
+
+<br><br>
+
+<input id="txnId" placeholder="Enter Transaction ID after payment">
+<button onclick="verifyPayment()">Verify Payment</button>
+
+<button onclick="back()">Back</button>
+</div>
+
+</div>
+
+<script>
+let currentUser="";
+let timer=60, interval;
+let isPremium=false;
+let selectedPlan="";
+
+// Exercises
+const exercises={
+easy:[
+"Typing is easy when you practice daily.",
+"Practice makes a person perfect in typing."
+],
+medium:[
+"Typing speed improves with consistent practice.",
+"Accuracy is more important than speed."
+],
+hard:[
+"Professional typing requires speed and accuracy.",
+"Advanced typing involves muscle memory and focus."
+],
+hindi:[
+"टाइपिंग अभ्यास से आपकी गति बढ़ती है",
+"नियमित अभ्यास से शुद्धता बढ़ती है"
+]
+};
+
+// LOGIN
+function login(){
+let u=username.value;
+if(!u) return alert("Enter username");
+
+currentUser=u;
+localStorage.setItem("user",u);
+
+checkSubscription();
+
+user.innerText=u;
+show("dashboard");
+}
+
+// CHECK SUBSCRIPTION
+function checkSubscription(){
+let sub=JSON.parse(localStorage.getItem("subscription"));
+
+if(sub){
+if(sub.type=="Lifetime" || new Date()<new Date(sub.expiry)){
+isPremium=true;
+status.innerText="Premium User";
+}
+}
+}
+
+// PAGE SWITCH
+function show(p){
+["loginPage","dashboard","testPage","leaderboardPage","plansPage"].forEach(id=>{
+document.getElementById(id).classList.add("hidden");
+});
+document.getElementById(p).classList.remove("hidden");
+}
+
+// START TEST
+function startTest(){
+let cat=document.getElementById("category").value;
+
+if((cat=="hard"||cat=="hindi") && !isPremium){
+alert("Buy Premium to unlock this test");
+return;
+}
+
+let arr=exercises[cat];
+let text=arr[Math.floor(Math.random()*arr.length)];
+
+textDisplay.innerHTML="";
+inputBox.value="";
+
+text.split("").forEach(c=>{
+let span=document.createElement("span");
+span.innerText=c;
+textDisplay.appendChild(span);
+});
+
+timer=60;
+interval=setInterval(updateTimer,1000);
+
+show("testPage");
+}
+
+// TYPING LOGIC
+inputBox.addEventListener("input",()=>{
+let typed=inputBox.value.split("");
+let spans=document.querySelectorAll("#textDisplay span");
+
+let correct=0;
+
+spans.forEach((s,i)=>{
+if(typed[i]==null){
+s.classList.remove("correct","wrong");
+}
+else if(typed[i]===s.innerText){
+s.classList.add("correct");
+s.classList.remove("wrong");
+correct++;
+}else{
+s.classList.add("wrong");
+s.classList.remove("correct");
+}
+});
+
+let acc=Math.round((correct/typed.length)*100)||100;
+accuracy.innerText=acc;
+
+let wpm=Math.round((typed.length/5)/(60-timer)*60)||0;
+document.getElementById("wpm").innerText=wpm;
+});
+
+// TIMER
+function updateTimer(){
+timer--;
+time.innerText=timer;
+if(timer<=0) endTest();
+}
+
+// END TEST
+function endTest(){
+clearInterval(interval);
+
+let wpm=document.getElementById("wpm").innerText;
+let acc=document.getElementById("accuracy").innerText;
+
+let scores=JSON.parse(localStorage.getItem("scores"))||[];
+
+scores.push({user:currentUser,wpm:wpm,accuracy:acc});
+localStorage.setItem("scores",JSON.stringify(scores));
+
+alert("Test Finished!");
+show("dashboard");
+}
+
+// LEADERBOARD
+function showLeaderboard(){
+show("leaderboardPage");
+
+let scores=JSON.parse(localStorage.getItem("scores"))||[];
+scores.sort((a,b)=>b.wpm-a.wpm);
+
+leaderboardList.innerHTML="";
+scores.slice(0,10).forEach(s=>{
+let li=document.createElement("li");
+li.innerText=`${s.user} - WPM:${s.wpm} Accuracy:${s.accuracy}%`;
+leaderboardList.appendChild(li);
+});
+}
+
+// PAYMENT
+function showPlans(){ show("plansPage"); }
+
+function pay(amount,plan){
+selectedPlan=plan;
+
+let upi=`upi://pay?pa=rajpootv888@ybl&pn=TypingPro&am=${amount}&cu=INR`;
+window.location.href=upi;
+}
+
+// VERIFY PAYMENT
+function verifyPayment(){
+let txn=document.getElementById("txnId").value;
+
+if(!txn){
+alert("Enter Transaction ID");
+return;
+}
+
+// Save request
+let requests=JSON.parse(localStorage.getItem("requests"))||[];
+requests.push({user:currentUser,plan:selectedPlan,txn:txn});
+localStorage.setItem("requests",JSON.stringify(requests));
+
+// Activate plan (demo)
+activatePlan(selectedPlan);
+
+alert("Payment Submitted! Premium Activated (Demo)");
+show("dashboard");
+}
+
+// ACTIVATE PLAN
+function activatePlan(plan){
+let expiry=new Date();
+
+if(plan=="1 Month") expiry.setMonth(expiry.getMonth()+1);
+else if(plan=="6 Months") expiry.setMonth(expiry.getMonth()+6);
+else if(plan=="1 Year") expiry.setFullYear(expiry.getFullYear()+1);
+else expiry="lifetime";
+
+localStorage.setItem("subscription",JSON.stringify({
+type:plan,
+expiry:expiry
+}));
+
+isPremium=true;
+status.innerText="Premium User";
+}
+
+// BACK
+function back(){ show("dashboard"); }
+
+// LOGOUT
+function logout(){
+localStorage.clear();
+location.reload();
+}
+
+// AUTO LOGIN
+window.onload=()=>{
+let u=localStorage.getItem("user");
+if(u){
+username.value=u;
+login();
+}
+};
+</script>
+
+</body>
+</html>
